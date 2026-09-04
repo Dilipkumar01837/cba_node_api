@@ -1,0 +1,17 @@
+# Environment variables (contains secrets - never commit!)
+.env
+.env.*
+!.env.example
+
+# Node
+node_modules/
+npm-debug.log*
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build
+dist/
+build/

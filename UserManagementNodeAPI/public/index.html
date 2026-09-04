@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>User Management Dashboard</title>
+  <meta name="description" content="A modern dashboard to manage users via the User Management Node API." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:      #0d0f17;
+      --surface: #161926;
+      --card:    #1e2235;
+      --border:  #2a2f47;
+      --accent:  #6c63ff;
+      --accent2: #00d4aa;
+      --danger:  #ff4f6e;
+      --warning: #ffb347;
+      --text:    #e2e8f0;
+      --muted:   #7b88a8;
+      --radius:  14px;
+      --shadow:  0 8px 32px rgba(0,0,0,.45);
+    }
+
+    body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
+
+    /* NAV */
+    nav {
+      display:flex; align-items:center; justify-content:space-between;
+      padding:0 32px; height:64px;
+      background:var(--surface); border-bottom:1px solid var(--border);
+      position:sticky; top:0; z-index:100;
+    }
+    .nav-brand { display:flex; align-items:center; gap:10px; font-weight:700; font-size:1.1rem; }
+    .nav-brand .dot { width:10px; height:10px; border-radius:50%; background:var(--accent); box-shadow:0 0 8px var(--accent); }
+    .nav-status { display:flex; align-items:center; gap:8px; font-size:.8rem; color:var(--muted); }
+    .status-dot { width:8px; height:8px; border-radius:50%; background:var(--accent2); animation:pulse 2s infinite; }
+    @keyframes pulse {
+      0%,100%{box-shadow:0 0 0 0 rgba(0,212,170,.5);}
+      50%{box-shadow:0 0 0 6px rgba(0,212,170,0);}
+    }
+
+    /* MAIN */
+    main { max-width:1400px; margin:0 auto; padding:36px 32px; }
+
+    /* STATS */
+    .stats-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:16px; margin-bottom:32px; }
+    .stat-card {
+      background:var(--card); border:1px solid var(--border); border-radius:var(--radius);
+      padding:22px 24px; position:relative; overflow:hidden; transition:transform .2s,box-shadow .2s;
+    }
+    .stat-card:hover { transform:translateY(-3px); box-shadow:var(--shadow); }
+    .stat-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; }
+    .stat-card.purple::before { background:var(--accent); }
+    .stat-card.teal::before   { background:var(--accent2); }
+    .stat-card.orange::before { background:var(--warning); }
+    .stat-card.red::before    { background:var(--danger); }
+    .stat-label { font-size:.75rem; color:var(--muted); text-transform:uppercase; letter-spacing:.08em; margin-bottom:8px; }
+    .stat-value { font-size:2rem; font-weight:700; }
+
+    /* TOOLBAR */
+    .toolbar { display:flex; align-items:center; gap:12px; margin-bottom:24px; flex-wrap:wrap; }
+    .search-wrap { flex:1; min-width:220px; position:relative; }
+    .search-wrap input {
+      width:100%; padding:10px 16px 10px 40px;
+      background:var(--card); border:1px solid var(--border); border-radius:10px;
+      color:var(--text); font-size:.9rem; outline:none; transition:border-color .2s;
+    }
+    .search-wrap input:focus { border-color:var(--accent); }
+    .search-wrap .icon { position:absolute; left:14px; top:50%; transform:translateY(-50%); color:var(--muted); }
+    .btn {
+      display:inline-flex; align-items:center; gap:7px;
+      padding:10px 18px; border-radius:10px; border:none;
+      font-size:.88rem; font-weight:600; cursor:pointer;
+      transition:filter .18s,transform .12s;
+    }
+    .btn:hover { filter:brightness(1.15); transform:translateY(-1px); }
+    .btn:active { transform:translateY(0); }
+    .btn-primary { background:var(--accent); color:#fff; }
+    .btn-ghost   { background:var(--border); color:var(--text); }
+    .btn-danger  { background:var(--danger); color:#fff; }
+
+    /* TABLE CARD */
+    .table-card { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; box-shadow:var(--shadow); }
+    .table-header { display:flex; align-items:center; justify-content:space-between; padding:18px 24px; border-bottom:1px solid var(--border); }
+    .table-header h2 { font-size:1rem; font-weight:600; }
+    .badge { background:rgba(108,99,255,.18); color:var(--accent); border-radius:20px; padding:3px 12px; font-size:.78rem; font-weight:600; }
+
+    table { width:100%; border-collapse:collapse; }
+    thead th {
+      padding:14px 20px; text-align:left; font-size:.75rem;
+      text-transform:uppercase; letter-spacing:.07em; color:var(--muted);
+      background:rgba(255,255,255,.025); border-bottom:1px solid var(--border);
+    }
+    tbody tr { border-bottom:1px solid var(--border); transition:background .15s; }
+    tbody tr:last-child { border-bottom:none; }
+    tbody tr:hover { background:rgba(255,255,255,.035); }
+    td { padding:14px 20px; font-size:.88rem; vertical-align:middle; }
+
+    .avatar {
+      width:36px; height:36px; border-radius:50%;
+      display:inline-flex; align-items:center; justify-content:center;
+      font-weight:700; font-size:.85rem; color:#fff; flex-shrink:0;
+    }
+    .user-cell { display:flex; align-items:center; gap:12px; }
+    .user-cell .name  { font-weight:600; font-size:.9rem; }
+    .user-cell .email { font-size:.78rem; color:var(--muted); margin-top:2px; }
+
+    .actions { display:flex; gap:8px; }
+    .icon-btn {
+      width:32px; height:32px; border-radius:8px; border:none;
+      display:flex; align-items:center; justify-content:center;
+      cursor:pointer; font-size:.95rem; transition:filter .15s,transform .12s;
+    }
+    .icon-btn:hover { filter:brightness(1.2); transform:scale(1.1); }
+    .icon-btn.edit   { background:rgba(108,99,255,.18); color:var(--accent); }
+    .icon-btn.delete { background:rgba(255,79,110,.18);  color:var(--danger); }
+
+    .empty-state { text-align:center; padding:64px 32px; color:var(--muted); }
+    .empty-state .eicon { font-size:3rem; margin-bottom:16px; }
+    .empty-state h3 { font-size:1.1rem; margin-bottom:8px; color:var(--text); }
+    .spinner { width:40px; height:40px; border:3px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin .8s linear infinite; margin:48px auto; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+
+    /* TOAST */
+    #toast-container { position:fixed; bottom:24px; right:24px; display:flex; flex-direction:column; gap:10px; z-index:9999; }
+    .toast {
+      display:flex; align-items:center; gap:12px;
+      background:var(--card); border:1px solid var(--border); border-radius:12px;
+      padding:14px 18px; min-width:280px; box-shadow:var(--shadow); animation:slideIn .3s ease;
+    }
+    .toast.success { border-left:4px solid var(--accent2); }
+    .toast.error   { border-left:4px solid var(--danger); }
+    .toast.info    { border-left:4px solid var(--accent); }
+    @keyframes slideIn { from{opacity:0;transform:translateX(40px);}to{opacity:1;transform:translateX(0);} }
+
+    /* MODAL */
+    .modal-overlay {
+      position:fixed; inset:0; background:rgba(0,0,0,.65); backdrop-filter:blur(4px);
+      display:flex; align-items:center; justify-content:center; z-index:1000;
+      opacity:0; pointer-events:none; transition:opacity .22s;
+    }
+    .modal-overlay.open { opacity:1; pointer-events:all; }
+    .modal {
+      background:var(--card); border:1px solid var(--border); border-radius:20px;
+      padding:32px; width:100%; max-width:560px; max-height:90vh; overflow-y:auto;
+      box-shadow:var(--shadow); transform:scale(.94); transition:transform .22s;
+    }
+    .modal-overlay.open .modal { transform:scale(1); }
+    .modal-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:24px; }
+    .modal-header h3 { font-size:1.15rem; font-weight:700; }
+    .modal-close { background:none; border:none; color:var(--muted); font-size:1.4rem; cursor:pointer; transition:color .15s; }
+    .modal-close:hover { color:var(--text); }
+
+    .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+    .form-group { display:flex; flex-direction:column; gap:7px; }
+    .form-group.full { grid-column:1/-1; }
+    .form-group label { font-size:.78rem; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; }
+    .form-group input {
+      background:var(--surface); border:1px solid var(--border); border-radius:10px;
+      color:var(--text); font-family:inherit; font-size:.9rem; padding:10px 14px; outline:none; transition:border-color .2s;
+    }
+    .form-group input:focus { border-color:var(--accent); }
+    .form-actions { display:flex; gap:12px; justify-content:flex-end; margin-top:24px; }
+    .section-title {
+      font-size:.8rem; font-weight:600; color:var(--muted); text-transform:uppercase;
+      letter-spacing:.1em; margin:4px 0 0; padding-bottom:6px; border-bottom:1px solid var(--border);
+      grid-column:1/-1;
+    }
+
+    #confirm-modal .modal { max-width:380px; text-align:center; }
+    #confirm-modal .warn-icon { font-size:3rem; margin-bottom:12px; }
+    #confirm-modal h3 { margin-bottom:8px; }
+    #confirm-modal p { color:var(--muted); font-size:.9rem; margin-bottom:24px; }
+
+    @media(max-width:700px) {
+      main { padding:20px 16px; } nav { padding:0 16px; }
+      .form-grid { grid-template-columns:1fr; }
+      table { display:block; overflow-x:auto; }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-brand">
+    <div class="dot"></div>
+    User Management
+  </div>
+  <div class="nav-status">
+    <div class="status-dot" id="api-dot"></div>
+    <span id="api-status-text">Connecting…</span>
+  </div>
+</nav>
+
+<main>
+  <div class="stats-row">
+    <div class="stat-card purple">
+      <div class="stat-label">Total Users</div>
+      <div class="stat-value" id="stat-total">—</div>
+    </div>
+    <div class="stat-card teal">
+      <div class="stat-label">With Address</div>
+      <div class="stat-value" id="stat-address">—</div>
+    </div>
+    <div class="stat-card orange">
+      <div class="stat-label">With Company</div>
+      <div class="stat-value" id="stat-company">—</div>
+    </div>
+    <div class="stat-card red">
+      <div class="stat-label">API Port</div>
+      <div class="stat-value">8084</div>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <div class="search-wrap">
+      <span class="icon">🔍</span>
+      <input id="search-input" type="text" placeholder="Search by name, username or email…" />
+    </div>
+    <button class="btn btn-ghost" onclick="loadUsers()">⟳ Refresh</button>
+    <button class="btn btn-primary" onclick="openAddModal()">＋ Add User</button>
+  </div>
+
+  <div class="table-card">
+    <div class="table-header">
+      <h2>All Users</h2>
+      <span class="badge" id="count-badge">0 users</span>
+    </div>
+    <div id="table-body-wrap"><div class="spinner"></div></div>
+  </div>
+</main>
+
+<div id="toast-container"></div>
+
+<!-- ADD / EDIT MODAL -->
+<div class="modal-overlay" id="user-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modal-title">Add New User</h3>
+      <button class="modal-close" onclick="closeModal('user-modal')">✕</button>
+    </div>
+    <form id="user-form" onsubmit="submitUserForm(event)">
+      <div class="form-grid">
+        <div class="section-title">Basic Info</div>
+        <div class="form-group">
+          <label>Full Name *</label>
+          <input id="f-name" type="text" placeholder="John Doe" required />
+        </div>
+        <div class="form-group">
+          <label>Username *</label>
+          <input id="f-username" type="text" placeholder="johndoe" required />
+        </div>
+        <div class="form-group full">
+          <label>Email *</label>
+          <input id="f-email" type="email" placeholder="john@example.com" required />
+        </div>
+        <div class="form-group">
+          <label>Phone</label>
+          <input id="f-phone" type="text" placeholder="+1-555-0100" />
+        </div>
+        <div class="form-group">
+          <label>Website</label>
+          <input id="f-website" type="text" placeholder="johndoe.dev" />
+        </div>
+
+        <div class="section-title">Address</div>
+        <div class="form-group full">
+          <label>Street</label>
+          <input id="f-street" type="text" placeholder="123 Main St" />
+        </div>
+        <div class="form-group">
+          <label>Suite</label>
+          <input id="f-suite" type="text" placeholder="Apt 4B" />
+        </div>
+        <div class="form-group">
+          <label>City</label>
+          <input id="f-city" type="text" placeholder="New York" />
+        </div>
+        <div class="form-group">
+          <label>Zipcode</label>
+          <input id="f-zipcode" type="text" placeholder="10001" />
+        </div>
+        <div class="form-group">
+          <label>Latitude</label>
+          <input id="f-lat" type="text" placeholder="40.7128" />
+        </div>
+        <div class="form-group">
+          <label>Longitude</label>
+          <input id="f-lng" type="text" placeholder="-74.0060" />
+        </div>
+
+        <div class="section-title">Company</div>
+        <div class="form-group full">
+          <label>Company Name</label>
+          <input id="f-company-name" type="text" placeholder="Acme Corp" />
+        </div>
+        <div class="form-group">
+          <label>Catch Phrase</label>
+          <input id="f-catch-phrase" type="text" placeholder="Innovation at scale" />
+        </div>
+        <div class="form-group">
+          <label>Business Strategy</label>
+          <input id="f-bs" type="text" placeholder="synergize solutions" />
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn btn-ghost" onclick="closeModal('user-modal')">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="modal-submit-btn">Save User</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- CONFIRM DELETE -->
+<div class="modal-overlay" id="confirm-modal">
+  <div class="modal">
+    <div class="warn-icon">⚠️</div>
+    <h3>Delete User?</h3>
+    <p id="confirm-msg">This action cannot be undone.</p>
+    <div class="form-actions" style="justify-content:center">
+      <button class="btn btn-ghost" onclick="closeModal('confirm-modal')">Cancel</button>
+      <button class="btn btn-danger" id="confirm-ok-btn">Delete</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const API = 'http://localhost:8084/api/users';
+  let allUsers = [];
+  let editingId = null;
+
+  const COLORS = ['#6c63ff','#00d4aa','#ff4f6e','#ffb347','#38bdf8','#a78bfa','#f472b6'];
+  function avatarColor(name) {
+    let h = 0;
+    for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xffffffff;
+    return COLORS[Math.abs(h) % COLORS.length];
+  }
+  function initials(name) { return name.split(' ').slice(0,2).map(w=>w[0]||'').join('').toUpperCase(); }
+
+  async function checkHealth() {
+    try {
+      const r = await fetch('http://localhost:8084/health');
+      const ok = r.ok;
+      document.getElementById('api-dot').style.background = ok ? 'var(--accent2)' : 'var(--danger)';
+      document.getElementById('api-status-text').textContent = ok ? 'API Online ✓' : 'API Error';
+    } catch {
+      document.getElementById('api-dot').style.background = 'var(--danger)';
+      document.getElementById('api-status-text').textContent = 'API Offline';
+    }
+  }
+
+  async function loadUsers() {
+    document.getElementById('table-body-wrap').innerHTML = '<div class="spinner"></div>';
+    try {
+      const r = await fetch(API);
+      if (!r.ok) throw new Error('Failed to fetch users');
+      allUsers = await r.json();
+      renderTable(allUsers);
+      updateStats(allUsers);
+    } catch (e) {
+      document.getElementById('table-body-wrap').innerHTML = `
+        <div class="empty-state">
+          <div class="eicon">🔌</div>
+          <h3>Could not reach API</h3>
+          <p>${esc(e.message)}</p>
+        </div>`;
+    }
+  }
+
+  function updateStats(users) {
+    document.getElementById('stat-total').textContent   = users.length;
+    document.getElementById('stat-address').textContent = users.filter(u=>u.address_id||u.address).length;
+    document.getElementById('stat-company').textContent = users.filter(u=>u.company_id||u.company).length;
+  }
+
+  function renderTable(users) {
+    document.getElementById('count-badge').textContent = `${users.length} user${users.length!==1?'s':''}`;
+    if (!users.length) {
+      document.getElementById('table-body-wrap').innerHTML = `
+        <div class="empty-state">
+          <div class="eicon">👤</div>
+          <h3>No users found</h3>
+          <p>Click "+ Add User" to create the first one.</p>
+        </div>`;
+      return;
+    }
+    const rows = users.map(u => {
+      const color = avatarColor(u.name || 'U');
+      const ini   = initials(u.name || 'U');
+      return `
+        <tr>
+          <td>
+            <div class="user-cell">
+              <div class="avatar" style="background:${color}">${ini}</div>
+              <div>
+                <div class="name">${esc(u.name)}</div>
+                <div class="email">${esc(u.email)}</div>
+              </div>
+            </div>
+          </td>
+          <td><code style="font-size:.82rem;color:var(--accent)">@${esc(u.username)}</code></td>
+          <td style="color:var(--muted)">${esc(u.phone||'—')}</td>
+          <td style="color:var(--muted)">${esc(u.website||'—')}</td>
+          <td>
+            <div class="actions">
+              <button class="icon-btn edit"   title="Edit"   onclick="openEditModal(${u.id})">✏️</button>
+              <button class="icon-btn delete" title="Delete" onclick="confirmDelete(${u.id},'${esc(u.name)}')">🗑️</button>
+            </div>
+          </td>
+        </tr>`;
+    }).join('');
+    document.getElementById('table-body-wrap').innerHTML = `
+      <table>
+        <thead><tr>
+          <th>User</th><th>Username</th><th>Phone</th><th>Website</th><th>Actions</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+  }
+
+  document.getElementById('search-input').addEventListener('input', e => {
+    const q = e.target.value.toLowerCase();
+    if (!q) { renderTable(allUsers); return; }
+    renderTable(allUsers.filter(u =>
+      (u.name||'').toLowerCase().includes(q) ||
+      (u.username||'').toLowerCase().includes(q) ||
+      (u.email||'').toLowerCase().includes(q)
+    ));
+  });
+
+  function openModal(id)  { document.getElementById(id).classList.add('open'); }
+  function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+  function clearForm() {
+    ['f-name','f-username','f-email','f-phone','f-website',
+     'f-street','f-suite','f-city','f-zipcode','f-lat','f-lng',
+     'f-company-name','f-catch-phrase','f-bs'].forEach(id => {
+      document.getElementById(id).value = '';
+    });
+  }
+
+  function openAddModal() {
+    editingId = null;
+    clearForm();
+    document.getElementById('modal-title').textContent       = 'Add New User';
+    document.getElementById('modal-submit-btn').textContent  = 'Save User';
+    openModal('user-modal');
+  }
+
+  function openEditModal(id) {
+    const u = allUsers.find(x => x.id === id);
+    if (!u) return;
+    editingId = id;
+    document.getElementById('f-name').value     = u.name     || '';
+    document.getElementById('f-username').value = u.username || '';
+    document.getElementById('f-email').value    = u.email    || '';
+    document.getElementById('f-phone').value    = u.phone    || '';
+    document.getElementById('f-website').value  = u.website  || '';
+    const addr = u.address || {};
+    document.getElementById('f-street').value  = addr.street  || '';
+    document.getElementById('f-suite').value   = addr.suite   || '';
+    document.getElementById('f-city').value    = addr.city    || '';
+    document.getElementById('f-zipcode').value = addr.zipcode || '';
+    const geo = addr.geo || {};
+    document.getElementById('f-lat').value = geo.lat || '';
+    document.getElementById('f-lng').value = geo.lng || '';
+    const comp = u.company || {};
+    document.getElementById('f-company-name').value  = comp.name         || '';
+    document.getElementById('f-catch-phrase').value  = comp.catchPhrase || comp.catch_phrase || '';
+    document.getElementById('f-bs').value             = comp.bs           || '';
+    document.getElementById('modal-title').textContent       = 'Edit User';
+    document.getElementById('modal-submit-btn').textContent  = 'Update User';
+    openModal('user-modal');
+  }
+
+  async function submitUserForm(e) {
+    e.preventDefault();
+    const street  = document.getElementById('f-street').value.trim();
+    const city    = document.getElementById('f-city').value.trim();
+    const lat     = document.getElementById('f-lat').value.trim();
+    const lng     = document.getElementById('f-lng').value.trim();
+    const compName = document.getElementById('f-company-name').value.trim();
+
+    // Only include address if required fields (street + city) are filled
+    let addressPayload = undefined;
+    if (street && city) {
+      addressPayload = {
+        street,
+        suite:   document.getElementById('f-suite').value.trim(),
+        city,
+        zipcode: document.getElementById('f-zipcode').value.trim()
+      };
+      // Only include geo if both lat and lng are provided
+      if (lat && lng) {
+        addressPayload.geo = { lat, lng };
+      }
+    }
+
+    // Only include company if name is filled (Company.name is required)
+    let companyPayload = undefined;
+    if (compName) {
+      companyPayload = {
+        name:       compName,
+        catchPhrase: document.getElementById('f-catch-phrase').value.trim(),
+        bs:          document.getElementById('f-bs').value.trim()
+      };
+    }
+
+    const payload = {
+      name:     document.getElementById('f-name').value.trim(),
+      username: document.getElementById('f-username').value.trim(),
+      email:    document.getElementById('f-email').value.trim(),
+      phone:    document.getElementById('f-phone').value.trim(),
+      website:  document.getElementById('f-website').value.trim(),
+      address: addressPayload,
+      company: companyPayload
+    };
+    const btn = document.getElementById('modal-submit-btn');
+    btn.disabled = true; btn.textContent = 'Saving…';
+    try {
+      const url    = editingId ? `${API}/${editingId}` : API;
+      const method = editingId ? 'PUT' : 'POST';
+      const r = await fetch(url, { method, headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+      if (!r.ok) { const err = await r.json(); throw new Error(err.message || 'Request failed'); }
+      closeModal('user-modal');
+      await loadUsers();
+      toast(editingId ? '✅ User updated!' : '✅ User created!', 'success');
+    } catch (err) {
+      toast('❌ ' + err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = editingId ? 'Update User' : 'Save User';
+    }
+  }
+
+  function confirmDelete(id, name) {
+    document.getElementById('confirm-msg').textContent = `Delete "${name}"? This cannot be undone.`;
+    document.getElementById('confirm-ok-btn').onclick  = () => deleteUser(id);
+    openModal('confirm-modal');
+  }
+
+  async function deleteUser(id) {
+    closeModal('confirm-modal');
+    try {
+      const r = await fetch(`${API}/${id}`, { method:'DELETE' });
+      if (!r.ok) throw new Error('Delete failed');
+      await loadUsers();
+      toast('🗑️ User deleted.', 'info');
+    } catch (err) {
+      toast('❌ ' + err.message, 'error');
+    }
+  }
+
+  function toast(msg, type='info') {
+    const el = document.createElement('div');
+    el.className = `toast ${type}`;
+    el.innerHTML = `<span>${msg}</span>`;
+    document.getElementById('toast-container').appendChild(el);
+    setTimeout(() => el.remove(), 3500);
+  }
+
+  function esc(s) {
+    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  document.querySelectorAll('.modal-overlay').forEach(el => {
+    el.addEventListener('click', e => { if (e.target === el) closeModal(el.id); });
+  });
+
+  checkHealth();
+  loadUsers();
+</script>
+</body>
+</html>
